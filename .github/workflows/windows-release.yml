@@ -1,0 +1,331 @@
+name: Windows release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wsl-helper:
+    name: Build static WSL helper
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Validate helper source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f wsl_helper/Cargo.toml || {
+            echo '::error file=wsl_helper/Cargo.toml::Required WSL helper source is missing.'
+            exit 1
+          }
+          test -f wsl_helper/Cargo.lock || {
+            echo '::error file=wsl_helper/Cargo.lock::Release builds require a committed Cargo.lock.'
+            exit 1
+          }
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.88.0
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install musl compiler
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      - name: Verify Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustup target list --installed | grep -qx x86_64-unknown-linux-musl
+
+      - name: Test helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path wsl_helper/Cargo.toml \
+            --locked \
+            --target x86_64-unknown-linux-musl
+
+      - name: Build helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build \
+            --manifest-path wsl_helper/Cargo.toml \
+            --locked \
+            --release \
+            --target x86_64-unknown-linux-musl
+          install -D -m 0755 \
+            wsl_helper/target/x86_64-unknown-linux-musl/release/wsl-helper \
+            dist/wsl-helper-x86_64
+          file dist/wsl-helper-x86_64 | tee dist/wsl-helper.file.txt
+          grep -q 'ELF 64-bit.*x86-64' dist/wsl-helper.file.txt
+          if readelf -l dist/wsl-helper-x86_64 | grep -q 'INTERP'; then
+            echo '::error::WSL helper must not contain a dynamic interpreter.'
+            exit 1
+          fi
+          if readelf -d dist/wsl-helper-x86_64 2>/dev/null | grep -q '(NEEDED)'; then
+            echo '::error::WSL helper must not depend on shared libraries.'
+            exit 1
+          fi
+          sha256sum dist/wsl-helper-x86_64 > dist/wsl-helper-x86_64.sha256
+
+      - name: Upload helper
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wsl-helper-x86_64
+          path: |
+            dist/wsl-helper-x86_64
+            dist/wsl-helper-x86_64.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-test:
+    name: Windows tests
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12 x64
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12.10"
+          architecture: x64
+
+      - name: Install locked Windows dependencies
+        run: python -m pip install --disable-pip-version-check --require-hashes --requirement requirements-windows.txt
+
+      - name: Run Windows-safe test suite
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Run JavaScript unit tests
+        run: node --test tests/js/i18n.test.mjs tests/js/ports.test.mjs
+
+      - name: Check JavaScript module syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem -LiteralPath static -Recurse -Filter '*.js' | ForEach-Object {
+            node --check $_.FullName
+            if ($LASTEXITCODE -ne 0) {
+              throw "JavaScript syntax check failed: $($_.FullName)"
+            }
+          }
+
+  windows-package:
+    name: Build unsigned Windows installer
+    needs: [wsl-helper, windows-test]
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12 x64
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12.10"
+          architecture: x64
+
+      - name: Download WSL helper
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: wsl-helper-x86_64
+          path: dist
+
+      - name: Install pinned Inno Setup 6.7.3
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Installer = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' `
+            -OutFile $Installer
+          $ExpectedHash = '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732'
+          $ActualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Installer).Hash.ToLowerInvariant()
+          if ($ActualHash -ne $ExpectedHash) {
+            throw "Inno Setup installer hash mismatch: $ActualHash"
+          }
+          $Signature = Get-AuthenticodeSignature -LiteralPath $Installer
+          if ($Signature.Status -ne 'Valid' -or $Signature.SignerCertificate.Subject -notmatch 'Pyrsys B\.V\.') {
+            throw 'Inno Setup installer does not have the expected valid publisher signature.'
+          }
+          $Process = Start-Process -FilePath $Installer `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/CURRENTUSER') `
+            -Wait -PassThru
+          if ($Process.ExitCode -ne 0) {
+            throw "Installing Inno Setup 6.7.3 failed with exit $($Process.ExitCode)."
+          }
+
+      - name: Build onedir application and installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Expected = ((Get-Content -Raw -LiteralPath ./dist/wsl-helper-x86_64.sha256).Trim() -split '\s+')[0].ToLowerInvariant()
+          $Actual = (Get-FileHash -Algorithm SHA256 -LiteralPath ./dist/wsl-helper-x86_64).Hash.ToLowerInvariant()
+          if ($Actual -ne $Expected) { throw "Downloaded WSL helper hash mismatch." }
+          ./packaging/windows/build.ps1 `
+            -WslHelper ./dist/wsl-helper-x86_64 `
+            -WslHelperSha256 ./dist/wsl-helper-x86_64.sha256
+
+      - name: Assert release artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Installer = Get-ChildItem -LiteralPath dist/windows/installer -Filter '*-setup.exe' -File
+          if ($Installer.Count -ne 1) { throw "Expected exactly one installer, got $($Installer.Count)." }
+          if (-not (Test-Path -LiteralPath dist/windows/SHA256SUMS.txt -PathType Leaf)) {
+            throw 'SHA256SUMS.txt was not produced.'
+          }
+          foreach ($Required in @(
+            'dist/windows/local-ops-windows-x64.spdx.json',
+            'dist/windows/windows-python-dependencies.txt',
+            'dist/windows/UNSIGNED_BUILD_NOTICE.txt',
+            'dist/windows/app/总控台/release-manifest.json',
+            'dist/windows/app/总控台/_internal/wsl/wsl-helper-x86_64',
+            'dist/windows/app/总控台/_internal/wsl/wsl-helper-x86_64.sha256'
+          )) {
+            if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) {
+              throw "Required Windows release artifact is missing: $Required"
+            }
+          }
+          $Supervisors = Get-ChildItem -LiteralPath 'dist/windows/app/总控台/_internal/supervisors' -Filter 'console-supervisor-*.exe' -File
+          if ($Supervisors.Count -ne 1) { throw "Expected one versioned supervisor, got $($Supervisors.Count)." }
+          $SupervisorHashPath = "$($Supervisors[0].FullName).sha256"
+          if (-not (Test-Path -LiteralPath $SupervisorHashPath -PathType Leaf)) {
+            throw 'Versioned supervisor SHA-256 companion is missing.'
+          }
+          foreach ($Binary in @(
+            $Supervisors[0].FullName,
+            'dist/windows/app/总控台/_internal/wsl/wsl-helper-x86_64'
+          )) {
+            $Expected = ((Get-Content -Raw -LiteralPath "$Binary.sha256").Trim() -split '\s+')[0].ToLowerInvariant()
+            $Actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Binary).Hash.ToLowerInvariant()
+            if ($Actual -ne $Expected) { throw "Bundled executable hash mismatch: $Binary" }
+          }
+          $Manifest = Get-Content -Raw -LiteralPath 'dist/windows/app/总控台/release-manifest.json' | ConvertFrom-Json
+          if (-not $Manifest.unsigned -or $Manifest.architecture -ne 'x86_64') {
+            throw 'Release manifest does not describe an unsigned x86_64 build.'
+          }
+          $ExpectedAppVersion = (Get-Content -Raw -LiteralPath VERSION).Trim()
+          if ($Manifest.appVersion -ne $ExpectedAppVersion) {
+            throw "Release manifest app version mismatch."
+          }
+          $SupervisorClient = Get-Content -Raw -LiteralPath supervisor_client.py
+          if ($SupervisorClient -notmatch '(?m)^SUPERVISOR_VERSION\s*=\s*["''](?<version>[0-9]+\.[0-9]+\.[0-9]+)["'']\s*$') {
+            throw 'Could not read the supervisor implementation version from source.'
+          }
+          if ($Manifest.supervisorVersion -ne $Matches.version) {
+            throw 'Release manifest supervisor version mismatch.'
+          }
+          $HelperManifest = Get-Content -Raw -LiteralPath wsl_helper/Cargo.toml
+          if ($HelperManifest -notmatch '(?m)^version\s*=\s*"(?<version>[0-9]+\.[0-9]+\.[0-9]+)"\s*$') {
+            throw 'Could not read the WSL helper version from source.'
+          }
+          if ($Manifest.helperVersion -ne $Matches.version) {
+            throw 'Release manifest WSL helper version mismatch.'
+          }
+          if ($Manifest.innoSetupVersion -ne '6.7.3') {
+            throw 'Release manifest Inno Setup version mismatch.'
+          }
+          if ($Supervisors[0].BaseName -ne "console-supervisor-$($Manifest.supervisorVersion)") {
+            throw "Versioned supervisor name does not match release manifest."
+          }
+          $Sbom = Get-Content -Raw -LiteralPath 'dist/windows/local-ops-windows-x64.spdx.json' | ConvertFrom-Json
+          if ($Sbom.spdxVersion -ne 'SPDX-2.3' -or $Sbom.dataLicense -ne 'CC0-1.0') {
+            throw 'Windows SBOM is not a valid SPDX 2.3 document.'
+          }
+          $ExpectedSbomVersions = @{
+            'local-ops' = $Manifest.appVersion
+            'local-ops-supervisor' = $Manifest.supervisorVersion
+            'local-ops-wsl-helper' = $Manifest.helperVersion
+          }
+          foreach ($PackageName in $ExpectedSbomVersions.Keys) {
+            $Packages = @($Sbom.packages | Where-Object { $_.name -eq $PackageName })
+            if ($Packages.Count -ne 1 -or $Packages[0].versionInfo -ne $ExpectedSbomVersions[$PackageName]) {
+              throw "Windows SBOM component version mismatch: $PackageName"
+            }
+          }
+          $AppRoot = (Resolve-Path -LiteralPath 'dist/windows/app/总控台').Path
+          $AppPrefix = $AppRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+          $ManifestEntries = @($Manifest.files.PSObject.Properties)
+          if (-not $ManifestEntries) { throw 'Release manifest contains no installed file hashes.' }
+          foreach ($Entry in $ManifestEntries) {
+            $RelativePath = $Entry.Name.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+            $Target = [System.IO.Path]::GetFullPath((Join-Path $AppRoot $RelativePath))
+            if (-not $Target.StartsWith($AppPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw "Release manifest path escapes the application root: $($Entry.Name)"
+            }
+            if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
+              throw "Release manifest references a missing installed file: $($Entry.Name)"
+            }
+            $Actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Target).Hash.ToLowerInvariant()
+            if ($Actual -ne $Entry.Value) {
+              throw "Installed file hash mismatch: $($Entry.Name)"
+            }
+          }
+          $ManifestFileNames = @($ManifestEntries | ForEach-Object { $_.Name })
+          $ManifestFullPath = (Resolve-Path -LiteralPath 'dist/windows/app/总控台/release-manifest.json').Path
+          $InstalledFileNames = @(
+            Get-ChildItem -LiteralPath $AppRoot -File -Recurse |
+              Where-Object { $_.FullName -ne $ManifestFullPath } |
+              ForEach-Object { $_.FullName.Substring($AppPrefix.Length).Replace('\', '/') }
+          )
+          if ($InstalledFileNames.Count -ne $ManifestFileNames.Count) {
+            throw 'Release manifest does not cover every installed application file.'
+          }
+          foreach ($InstalledFileName in $InstalledFileNames) {
+            if ($ManifestFileNames -notcontains $InstalledFileName) {
+              throw "Installed application file is absent from release manifest: $InstalledFileName"
+            }
+          }
+          foreach ($Line in Get-Content -LiteralPath dist/windows/SHA256SUMS.txt) {
+            if ($Line -notmatch '^(?<hash>[0-9a-f]{64})  (?<path>.+)$') {
+              throw "Invalid SHA256SUMS entry: $Line"
+            }
+            $Expected = $Matches.hash
+            $RelativePath = $Matches.path
+            $Target = Join-Path 'dist/windows' $RelativePath
+            if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
+              throw "SHA256SUMS references a missing release artifact: $Target"
+            }
+            $Actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Target).Hash.ToLowerInvariant()
+            if ($Actual -ne $Expected) { throw "Release artifact hash mismatch: $Target" }
+          }
+
+      - name: Upload unsigned Windows release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: local-ops-windows-x64-unsigned
+          path: |
+            dist/windows/installer/*-setup.exe
+            dist/windows/SHA256SUMS.txt
+            dist/windows/local-ops-windows-x64.spdx.json
+            dist/windows/windows-python-dependencies.txt
+            dist/windows/UNSIGNED_BUILD_NOTICE.txt
+            dist/windows/app/总控台/release-manifest.json
+          if-no-files-found: error
+          retention-days: 14

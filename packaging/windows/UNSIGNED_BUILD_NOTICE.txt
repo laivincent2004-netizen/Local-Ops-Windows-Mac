@@ -1,0 +1,23 @@
+总控台 Windows x64 内测版说明
+================================
+
+这是一个未经 Authenticode 代码签名的首版内测安装包。Windows
+Microsoft Defender SmartScreen 可能显示“Windows 已保护你的电脑”。
+
+安装前请：
+
+1. 仅从项目的 GitHub Releases 页面下载。
+2. 使用同一发布中的 SHA256SUMS.txt 核对安装包 SHA-256。
+3. 如 SmartScreen 阻止，在确认哈希无误后选择“更多信息”→“仍要运行”。
+4. 哈希不匹配、下载来源不明或安装包显示意外的发布者时，请立即取消。
+
+安装默认位置：%LOCALAPPDATA%\Programs\总控台
+数据默认位置：%LOCALAPPDATA%\总控台
+
+覆盖升级只会停止托盘与 HTTP 服务。已由版本化 supervisor 托管的
+本机或 WSL2 应用会继续运行。卸载默认保留上述用户数据；如需删除，
+请先在启动台停止应用并完成备份。
+
+发布中的 local-ops-windows-x64.spdx.json 记录 Windows 打包依赖，
+windows-python-dependencies.txt 保留构建环境解析后的完整 Python 版本清单。
+未来稳定发布将在构建流程中启用 Authenticode 签名与签名验证。

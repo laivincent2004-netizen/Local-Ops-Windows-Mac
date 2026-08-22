@@ -1,0 +1,71 @@
+name: Bug 报告
+description: 报告可复现的功能、兼容性或界面问题
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。安全漏洞请不要填写此表单，请按 `SECURITY.md` 私下报告。
+        上传前请删除个人路径、完整命令、日志凭据、PID、token 和用户图标。
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，没有发现同一问题
+          required: true
+        - label: 这不是安全漏洞或包含可直接利用细节的报告
+          required: true
+        - label: 我已对文字、日志、截图和录屏完成脱敏
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: 总控台版本或 commit
+      placeholder: 例如 1.0.0 或 abc1234
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      description: 请填写 macOS、Python 和浏览器版本
+      placeholder: macOS 15.5 / Python 3.12.4 / Safari 18
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+      description: 说明发生了什么，以及它对你造成的影响
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 最小复现步骤
+      placeholder: |
+        1. 打开……
+        2. 添加一个已脱敏的示例……
+        3. 点击……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 已脱敏证据
+      description: 可粘贴最小日志或拖入截图；不要上传 config.json 或完整日志
+      render: shell
+  - type: textarea
+    id: notes
+    attributes:
+      label: 其他信息
+      description: 例如是否稳定复现、最近一次正常版本或临时规避方式

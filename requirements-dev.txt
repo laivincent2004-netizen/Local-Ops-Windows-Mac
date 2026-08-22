@@ -1,0 +1,3 @@
+# Runtime remains Python-standard-library only. These packages are used solely
+# to regenerate checked-in brand derivative assets and icons.
+Pillow==12.3.0

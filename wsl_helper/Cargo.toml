@@ -1,0 +1,17 @@
+[package]
+name = "wsl-helper"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+description = "Static /proc helper for the 总控台 WSL2 adapter"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[[bin]]
+name = "wsl-helper"
+path = "src/main.rs"
