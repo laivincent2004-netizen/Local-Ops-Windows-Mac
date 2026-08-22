@@ -1,5 +1,7 @@
 # 总控台
 
+[English version](#english-version)
+
 **Preview / Alpha · Windows 未签名内测 / macOS 源码预览**
 
 总控台是面向 Windows 和 macOS 的本地服务与批处理任务快速启动、运行监测工具。它把常用项目命令、长期服务和一次性任务集中到只绑定本机回环地址的网页中。前端是无构建、无 CDN 的原生 HTML/CSS/JavaScript；macOS 源码运行时仅用 Python 3 标准库，Windows 安装包则自带 Python 运行时和所需依赖。
@@ -379,3 +381,391 @@ make check
 ## 许可与第三方素材
 
 项目自有代码和文档采用 [`MIT License`](LICENSE)。Lucide、Geist Mono 以及项目生成图像等素材可能适用各自的许可或发布限制，不因根目录 MIT 许可证而自动改变，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 与 [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md)。
+
+---
+
+<a id="english-version"></a>
+
+# Local Ops Console
+
+[中文版](#总控台)
+
+**Preview / Alpha · Unsigned Windows Preview Build / macOS Source Preview**
+
+Local Ops Console is a local service and batch-task launcher and runtime monitor for Windows and macOS. It brings frequently used project commands, long-running services, and one-off tasks together in a browser interface that binds only to the local loopback address. The frontend uses native HTML, CSS, and JavaScript with no build step or CDN. The macOS source version uses only the Python 3 standard library at runtime, while the Windows installer includes its own Python runtime and required dependencies.
+
+> This version is still in Preview / Alpha. The Windows distribution is an unsigned x64 preview build without an Authenticode signature and may trigger Microsoft Defender SmartScreen. The macOS version is distributed as a complete source directory: `总控台.app` is not a self-contained application that can be copied on its own, and it is neither signed nor notarized. APIs, configuration, and installation procedures may still change during the preview period.
+
+Local Ops Console is designed only for the current computer and current user. It is not a remote operations platform, collaboration server, or public-facing administration panel. It can execute saved shell commands with the permissions of the current Windows or macOS user, or the default user of a selected WSL2 distribution. Do not expose its listening address through a reverse proxy, SSH tunnel, or port forwarding, and do not expose it to an untrusted network.
+
+## Features
+
+- View the current user’s local listening services, CPU usage, memory usage, and uptime every two seconds.
+- Save commonly used services or batch tasks, then start, stop, restart, inspect logs, and diagnose them from one place.
+- Detect newly opened, unmanaged listening ports during the current page session and add them directly to the Launchpad or hide them.
+- Validate working directories, scripts, and runtimes before launch. When a configuration is clearly invalid, the app provides a repair path without requiring a failed launch first.
+- Detect common launch commands from a project folder without installing dependencies or executing project code.
+- Safely identify managed processes through run tokens and complete process identities: macOS validates process groups and UIDs, Windows validates SIDs and creation times, and WSL2 validates the distribution boot ID, UID, start ticks, and command/directory hashes. An unrelated process is never terminated merely because it uses the same port.
+- Run native Windows commands through the Auto shell, CMD, or Windows PowerShell, and use the same interface to start and monitor services inside running WSL2 distributions.
+- A single Ops command-center theme with deep blue-black and mist-gray palettes, a left navigation rail, KPI overview cards, a live activity sidebar, and light, dark, or system appearance modes.
+- Use the `EN | 中` switch in the top bar to instantly change the entire built-in interface between English and Chinese. The selection is saved in the current browser and remains active after a page refresh.
+- Use the global Command Palette to add services or batch tasks. Launchpad cards support both mouse drag-and-drop and keyboard reordering.
+
+## Interface Preview
+
+The screenshots below use sanitized demonstration data and contain no real usernames, directories, commands, or service information.
+
+| Launchpad | Service Monitor |
+| --- | --- |
+| ![Ops Console · Launchpad](docs/screenshots/ops-launchpad.jpg) | ![Ops Console · Service Monitor](docs/screenshots/ops-services.jpg) |
+
+## System Requirements
+
+### Windows Installer
+
+- Windows 10 22H2 (build 19045) or Windows 11 on x64/AMD64. Windows ARM64 is not supported.
+- Installation and use do not require administrator privileges or a separate Python installation. Python 3.12, `psutil`, `pywin32`, and other runtime components are included in the PyInstaller `onedir` distribution.
+- A modern default browser. The tray host opens the interface in the browser; it does not use an embedded WebView.
+- WSL support is optional and requires WSL2 with an x86_64 distribution. WSL1 is not supported—the interface displays a `wsl --set-version <distribution> 2` instruction. The distribution does not need Python, `ps`, or `lsof`.
+
+### macOS Source Version
+
+- macOS 12 or later.
+- Python 3.12. Only the Python standard library is used at runtime.
+- The system-provided `ps`, `lsof`, and `osascript` tools, plus Safari, Chrome, or another modern browser with ES Modules support.
+
+`VERSION` is the single authoritative source for the application version. The macOS `Info.plist`, Windows Inno/PyInstaller `release-manifest.json`, distribution filenames, and release notes must remain consistent with it. The supervisor and WSL helper protocol versions are managed independently and must not be replaced with the application `VERSION`.
+
+## Installation
+
+### Unsigned Windows x64 Preview Build
+
+1. Download `local-ops-<version>-windows-x64-setup.exe`, `SHA256SUMS.txt`, and `UNSIGNED_BUILD_NOTICE.txt` from the project’s GitHub Releases page. Do not use an untrusted mirror.
+2. Before installation, calculate the hash in PowerShell and compare it character-for-character with `SHA256SUMS.txt` from the same release:
+
+   ```powershell
+   Get-FileHash .\local-ops-*-windows-x64-setup.exe -Algorithm SHA256
+   ```
+
+3. Run the installer. This preview build is not Authenticode-signed. If SmartScreen blocks it, select “More info” → “Run anyway” only after verifying both the download source and SHA-256. Cancel immediately if the hash does not match.
+4. By default, the app is installed for the current user at `%LOCALAPPDATA%\Programs\总控台` and does not request administrator privileges. “登录 Windows 后启动托盘” (“Start the tray app after signing in to Windows”) is optional and is unchecked by default.
+
+The bundled `release-manifest.json`, SPDX 2.3 SBOM, and Python dependency inventory support preview-build auditing. They do not replace verification of the installer’s source and SHA-256.
+
+### macOS Source Directory
+
+The macOS version runs from the complete project directory. `总控台.app` is a project-local launcher, not a self-contained application that can be copied separately.
+
+1. **Download and extract:** Extract the release zip to a location where you have read and write access, such as `~/Applications` or a permanent directory under Documents. Keep the complete directory structure after extraction; do not move `总控台.app` by itself.
+2. **Confirm Python 3.12:** Run the following in Terminal:
+
+   ```bash
+   python3 --version
+   ```
+
+   Version 3.12 or later is sufficient. If Python is missing or too old, download the official macOS installer from <https://www.python.org/downloads/> and complete the installation wizard once. No further setup is required afterward.
+3. **First launch—unsigned application, choose one method:**
+   - Graphical method: **Right-click `总控台.app` → Open**, then select “Open” again in the dialog. This is required only once.
+   - Command-line method, equivalent and useful for batch or remote setup:
+
+     ```bash
+     xattr -dr com.apple.quarantine "总控台.app"
+     ```
+
+     You can then launch it normally by double-clicking. This is macOS’s standard quarantine prompt for applications downloaded from the internet and does not mean the program is damaged.
+
+## Running
+
+### Windows Tray Host
+
+Launch `总控台.exe` from the Start menu or installation directory. It remains in the system tray, starts an HTTP service bound only to `127.0.0.1`, and opens the interface in the default browser. Only one tray instance runs per Windows user. Launching it again activates the existing instance and opens the page. The tray menu can open the interface; start, stop, or restart the HTTP service; and exit the tray host. Before exiting, it clearly warns that managed applications will continue running.
+
+For native Windows applications, the `auto` shell sends ordinary commands to `cmd.exe /d /s /c` and `.ps1` commands to Windows PowerShell. You can also explicitly select CMD or PowerShell. Local Ops Console never bypasses the PowerShell execution policy automatically. WSL2 applications use the default user and `/bin/sh -lc` in the selected distribution. On first use, the bundled helper’s SHA-256 is verified before it is installed in that user’s private directory. Monitoring scans only WSL2 distributions that are already running and never starts a stopped distribution merely to monitor it.
+
+### Running the macOS Source Version
+
+There are three equivalent ways to start Local Ops Console. Choose whichever suits your workflow:
+
+| Method | Action | Best for |
+| --- | --- | --- |
+| Double-click the app | Double-click `总控台.app` | Everyday use; runs in the background without a Terminal window or Dock icon |
+| Double-click the script | Double-click `start.command` | Viewing live output in Terminal |
+| Command line | `python3 server.py` | Debugging, automation, or remote SSH launch |
+
+The command line also accepts two optional arguments:
+
+```bash
+python3 server.py --no-browser        # Start the service without opening a browser
+python3 server.py --preferred-port 9603  # Choose a preferred port within 9600-9609
+```
+
+On both platforms, the service binds only to `127.0.0.1`. It tries ports beginning at 9600, incrementing when a port is occupied, for a maximum of ten ports, and opens the browser automatically. The macOS source version’s command-line arguments and environment variables (`CONSOLE_DATA_DIR` / `CONSOLE_LOG_DIR`) are described below under “Data, Privacy, and Backups.” The installed Windows version always uses secure current-user directories and does not accept inherited runtime-directory overrides.
+
+**Where to find the actual address:** The current port is shown directly on the “Restart :9600” button in the top bar. On Windows, inspect `%LOCALAPPDATA%\总控台\logs\desktop.log`. On macOS, inspect the Terminal output or `~/Library/Logs/总控台/console.log`. You can also manually visit an address such as `http://127.0.0.1:9600/` in a browser, using the actual port shown by Console.
+
+**Stopping and restarting:** The “Restart / Stop” controls in the top bar affect Local Ops Console itself—the web service. Stopping or restarting the console **does not** stop applications already running from the Launchpad. macOS uses independent process groups. Windows uses persistent, versioned supervisors and Job Objects without `KILL_ON_JOB_CLOSE`. The next time Local Ops Console opens, it uses saved full process identities to recognize the original native and WSL2 applications again.
+
+## Usage
+
+After the page opens, the navigation rail is on the left and the information sidebar is on the right. All data refreshes automatically every two seconds.
+
+### Launchpad — Manage Your Services and Tasks
+
+- **Add a service or task:** Select the “+ Add service” card or the page-header shortcut. After you select a workspace folder, Local Ops Console detects common project types—Node/pnpm, Hexo/Hugo, Django/FastAPI, Go, Rust, static sites, and others—and proposes launch commands. You may also use “Choose script…” or enter everything manually. A `service` is a long-running service with port semantics; a `task` is a batch operation with a defined end and is always portless.
+- **Cards:** The large button starts or stops the item; for tasks, it runs or aborts them. A row of smaller buttons—copy link, logs, diagnostics, restart, edit, and delete—remains visible without requiring hover. Running cards display their port and elapsed time. Invalid configurations, such as missing directories or scripts, show the reason immediately and disable launching. Open “Start diagnosis” for repair suggestions.
+- **Filters:** The upper-right corner of each section filters instantly by All, Running, Stopped, or Errors. Task filters are All, Running, Succeeded, Failed, or Canceled.
+- **Reordering:** Drag cards with the mouse, or focus a card and press Space to enter keyboard reordering. Use the arrow keys to move it and press Space again to confirm.
+- **Stop all:** “Quick actions” in the right sidebar can stop every running application. A confirmation dialog appears, and each application is stopped safely in turn. Processes are never killed by port number.
+
+### Service Monitor — See What Is Running on This Computer
+
+- **Overview cards:** Online services, background applications, total CPU, total memory—with a one-minute load graph—port warnings, and last update time.
+- **Service table:** Each service displays its runtime environment, PID, port, directory, resource load, uptime, state, and an **origin badge**. Process ancestry identifies whether it was launched by an AI assistant such as Codex, Claude, or Kimi; an editor such as VS Code or Cursor; a terminal; Local Ops Console; or a WSL2 distribution. Select a port to open the service. Buttons at the end of the row can add it to the Launchpad, pin it, hide it, expand the complete command, or safely terminate the process.
+- **New-port discovery:** Listening ports that appear while the page is open are called out separately. You can “Add to Launchpad,” which detects the project and atomically attaches the process to the new card; “Ignore and hide”; or “Dismiss.”
+- **Background and hidden items:** System and GUI application processes are collapsed under “Background Apps” by default. Hidden services can be restored at any time.
+- **Watched processes:** Enter a keyword such as `ffmpeg` and press Enter to display matching processes in real time.
+
+### Log Center
+
+Open “Log Center” from the navigation rail or use the shortcut shown in the interface—⌘J on macOS. Applications are ordered with running items first. Select any row to view its live log. A permanent entry for Local Ops Console’s own log appears at the bottom.
+
+### Settings
+
+Open the gear icon in the navigation rail. Settings include task-completion notifications, which can notify you even while this tab is in the background; a three-state appearance selector for Auto, Light, or Dark; and version, port, working-directory, and data-directory information.
+
+### Command Palette
+
+Search for and run global actions entirely from the keyboard: add a service or task, start, stop, or restart any application, open a page, view logs, switch views, toggle task notifications, or inspect the Local Ops Console log. The shortcut is ⌘K on macOS.
+
+### Important Usage Notes
+
+- Red buttons terminate processes or delete applications and require explicit confirmation. If a normal Windows or WSL stop times out, Local Ops Console never escalates automatically. The user must confirm again before it force-terminates the verified Job or session.
+- A batch task that exits naturally with `0` is successful. Any other nonzero exit code is a failure. When a user cancels from inside a script, exit with `130` to display “Canceled.” An abort initiated with the Local Ops Console button is shown separately as “Aborted.”
+- When you select a batch script, Local Ops Console saves only its absolute path and generated execution command; it does not copy or host the script contents. Moving, renaming, or deleting the script invalidates the task. Store personal scripts in a stable automation directory that is backed up separately.
+- Stopping Local Ops Console does not automatically stop independent services it has launched. Saved applications, icons, watched keywords, and hidden or pinned flags are preserved.
+
+### Batch-Task Exit-Code Convention
+
+A task that exits naturally with `0` succeeds, while any other nonzero code fails. A cancellation initiated by the user from inside the script should exit with `130`, which is displayed as “Canceled” rather than failed. An abort initiated with the Local Ops Console button is displayed as “Aborted.” In Python, use `raise SystemExit(130)`; in Shell, use `exit 130`; and in Node.js, set `process.exitCode = 130`. This convention applies only to `task` items. Long-running services use ordinary exit handling.
+
+### Baseline Rules for New-Port Discovery
+
+The Service Monitor notifies you only about local services that **appear after the page is opened** and have not yet been added to the Launchpad. The initial load, return from a background tab, reconnection after a network interruption, or first state after a console restart establishes a silent baseline and does not show every existing port again. “Ignore and hide” is saved to the configuration and can be reversed. “Dismiss” affects only the current page session.
+
+## Data, Privacy, and Backups
+
+Runtime data is stored separately from the application directory:
+
+| Platform and path | Contents | Backup recommendation |
+| --- | --- | --- |
+| Windows `%LOCALAPPDATA%\总控台\config.json{,.bak}` | Application commands, environments, paths, ports, flags, and runtime identity information | Required |
+| Windows `%LOCALAPPDATA%\总控台\icons\` | User-uploaded icons and site icons | As needed |
+| Windows `%LOCALAPPDATA%\总控台\runtime\` / `supervisors\` | Managed runtime identities and versioned supervisors currently in use | Do not delete while applications are running |
+| Windows `%LOCALAPPDATA%\总控台\logs\` | Application, HTTP-service, and tray logs | Usually unnecessary |
+| `~/Library/Application Support/总控台/config.json` | Application commands, local paths, ports, flags, and runtime identity information | Required |
+| `~/Library/Application Support/总控台/config.json.bak` | Previous known-good configuration | Required |
+| `~/Library/Application Support/总控台/icons/` | User-uploaded icons and site icons | As needed |
+| `~/Library/Logs/总控台/` | Application and Local Ops Console runtime logs | Usually unnecessary |
+
+The installed Windows version restricts the DACLs of the data directory, configuration, logs, runtime metadata, and control channels so that only the current user SID and SYSTEM can access them. On macOS, directories use mode `0700`, while configuration, icon, and log files use mode `0600`. These files may still contain personal paths, complete shell commands, run tokens, and log contents. Do not commit them to Git or distribute them with releases or unsanitized bug reports.
+
+### One-Time Migration of Legacy macOS Data
+
+This migration applies only to macOS. Windows always creates a new configuration under `%LOCALAPPDATA%` and never scans, imports, or converts Mac data. On macOS, if the new target directory does not yet exist, the first launch safely copies the project-local legacy `data/config.json{,.bak}` and `data/icons/` into Application Support, and copies `data/logs/` into Library Logs. The migration stages content in a temporary directory before moving it atomically, with these rules:
+
+- The legacy `data/` directory is always retained and never deleted automatically.
+- An existing target is never overwritten or merged, preventing newer user data from being replaced with legacy data.
+- Symbolic links and non-regular files are not copied.
+- If `CONSOLE_DATA_DIR` or `CONSOLE_LOG_DIR` is set explicitly, automatic legacy migration is disabled for the corresponding directory.
+
+To use custom paths:
+
+```bash
+CONSOLE_DATA_DIR="/private/path/console-data" \
+CONSOLE_LOG_DIR="/private/path/console-logs" \
+python3 server.py
+```
+
+Each custom value must be a nonempty absolute path pointing to a dedicated, non-symlink subdirectory for Local Ops Console. Do not use `/`, the user’s home directory, or the project root directly.
+
+### Backup
+
+1. Stop initiating new launch, stop, or edit operations.
+2. Stop Local Ops Console—exit from the Windows tray, or stop the HTTP service/launcher on macOS. To create a consistent snapshot that includes runtime identities, stop managed applications first as well.
+3. On Windows, copy `%LOCALAPPDATA%\总控台\`. On macOS, copy `~/Library/Application Support/总控台/`.
+4. Record the current `VERSION` so that you can match the configuration format during recovery.
+
+### Restore
+
+1. Ensure that Local Ops Console and all managed applications are stopped, then preserve a separate copy of the current platform data directory.
+2. Copy `config.json` and `icons/` from the backup into the corresponding location. On macOS, file and directory modes must be `0600` and `0700`, respectively. On Windows, restart the installed application and confirm that its private DACL check passes.
+3. Restart Local Ops Console and verify each command, working directory, and port.
+
+If the primary configuration is corrupted, the program validates `config.json.bak` and restores the primary file. If neither file is usable, the service enters read-only protection and does not overwrite them with an empty configuration. `config.json.bak` stores the previous known-good configuration from before each change; it is not a same-content copy of the current primary file.
+
+## Upgrading
+
+During an in-place Windows upgrade, the installer requests only that the tray host and HTTP service exit. It does not stop running native Windows or WSL2 applications. Those applications continue using the previous supervisor version under `%LOCALAPPDATA%\总控台\supervisors\`. After an application exits, the exit monitor removes old supervisor versions that are no longer referenced by runtime metadata. Later supervisor launches also perform a cleanup scan as a fallback. An in-place installation does not delete data under `%LOCALAPPDATA%\总控台\`. Before upgrading, still read `CHANGELOG.md`, verify the new installer’s SHA-256, and back up your data.
+
+To upgrade the macOS source version:
+
+1. Read `CHANGELOG.md` and check for configuration or platform changes.
+2. Stop Local Ops Console and completely back up `~/Library/Application Support/总控台/`.
+3. Replace the project directory with the new version. User data remains in the Library directories.
+4. Run `make check`. After launch, verify the application count, theme, watched keywords, and a complete start/stop cycle for one controllable service.
+
+The configuration contains a `schemaVersion`, and startup applies explicit, idempotent migrations one version at a time. The application refuses configuration schemas newer than it supports instead of silently downgrading them. When reverting the program, also restore a data backup that matches that version.
+
+## Uninstallation
+
+1. If you do not want launched services to keep running, stop each of them from the Launchpad first. Uninstalling or exiting Local Ops Console alone does not terminate these processes.
+2. On Windows, uninstall it from Settings → Apps. The uninstaller stops the tray/HTTP host and removes `%LOCALAPPDATA%\Programs\总控台`, but retains `%LOCALAPPDATA%\总控台\` data, logs, runtime metadata, and supervisors still in use. The optional sign-in startup shortcut is removed with the application.
+3. On macOS, stop Local Ops Console and move the complete project directory to the Trash.
+4. Only after creating a backup, stopping all managed applications, and confirming the data is no longer needed should you manually delete `%LOCALAPPDATA%\总控台\` or the macOS Application Support and Library Logs directories. WSL2 helper/session files live under the current user’s directory inside the distribution and are not removed automatically when the Windows application is uninstalled.
+
+## Security Boundary
+
+Local Ops Console is not a multi-user server or remote administration panel. It can execute saved shell commands with the permissions of the current local user or the WSL2 distribution’s default user. Therefore:
+
+- Add only commands and working directories that you have reviewed and trust.
+- Do not bind Console to `0.0.0.0`, and do not expose it through a reverse proxy, SSH tunnel, or port forwarding.
+- Do not run it from a shared or untrusted user account.
+- Do not upload `%LOCALAPPDATA%\总控台`, the Application Support `config.json`, logs, or troubleshooting screenshots without sanitizing them first.
+- Loopback binding is only the first security boundary. It does not replace Host, Origin, and control-token protection for write endpoints. Release acceptance must include the security checks in `RELEASE_CHECKLIST.md`.
+- Windows process termination and attachment must validate the current SID, PID creation time, working-directory/command identity, and port. WSL2 must validate the boot ID, UID, start ticks, session/token, and directory/command hashes. When a complete identity cannot be proven, the operation must fail instead of falling back to a raw PID or killing a process by port.
+
+## Troubleshooting
+
+### No Interface Appears After Starting on Windows
+
+- Select “打开总控台” (“Open Console”) from the system-tray menu, or manually visit `http://127.0.0.1:9600/`–`http://127.0.0.1:9609/`.
+- Inspect `%LOCALAPPDATA%\总控台\logs\desktop.log` and `console.log`. The installed Windows version does not require Python to be installed on the system.
+- If only WSL2 data is missing, confirm that the distribution is WSL2 and has been explicitly started by the user. Local Ops Console monitoring never starts a stopped distribution automatically.
+
+### No Interface Appears After Double-Clicking on macOS
+
+- Confirm that `python3 --version` is available and meets the requirement.
+- Inspect `~/Library/Logs/总控台/console.log`.
+- Run `python3 server.py` from Terminal to view the error directly.
+- Do not move `总控台.app` by itself. It must remain in the project root.
+
+### Port 9600 Does Not Open
+
+The program may have selected port 9601–9609. Check the actual address in Windows `%LOCALAPPDATA%\总控台\logs\desktop.log`, or in the macOS Terminal output or `~/Library/Logs/总控台/console.log`. When the service is reachable, `GET /api/health` returns the program version, configuration schema, and degradation reasons without performing a process or port scan. `GET /api/platform` reports the platform, architecture, available shells, packaging status, and WSL distributions.
+
+### An Application Fails to Start
+
+- Open that application’s log and “Startup Diagnostics” first.
+- Confirm that the working directory still exists and that the command runs in a normal shell.
+- Check whether another process occupies the configured port at the moment of launch. Different projects may save the same common development port.
+- Applications launched from Finder do not read your shell configuration. Local Ops Console adds common Node and Homebrew paths, but nonstandard installations may still require explicit absolute paths.
+- On Windows, check whether the card uses Native/CMD/PowerShell or the correct WSL2 distribution. WSL paths may use Linux paths, `\\wsl.localhost\<distribution>\...`, or mappable Windows drive paths. WSL1 is unavailable.
+
+### Configuration Is Missing or Corrupted
+
+Stop Local Ops Console and preserve the current `config.json`. Then follow the “Restore” procedure above using a known-good `config.json.bak` or offline backup.
+
+## Development
+
+The macOS backend has no third-party Python runtime dependencies. Windows source execution and packaging dependencies are pinned in `requirements-windows.txt`; they are bundled for release, so end users do not need to install Python. Development dependencies are required when regenerating derived brand assets or the icon library:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements-dev.txt
+```
+
+Main directories:
+
+```text
+server.py                 Cross-platform HTTP/API and application backend; Windows uses pinned dependencies through adapters
+console_platform/         macOS, Windows, and WSL adapters
+supervisor*.py            Persistent Windows Job Object/named-pipe supervisor processes
+desktop/windows_host.py   Windows tray host and single-instance activation
+wsl_helper/               Static Rust/musl WSL2 `/proc` helper
+packaging/windows/        PyInstaller + Inno Setup build and installer
+static/                   Native frontend, theme, branding, icons, and fonts
+tests/                    Backend, frontend-contract, release, and distribution checks
+tools/gen_brand_assets.py Generates favicon and macOS App Icon assets from the primary brand image
+tools/gen_icons.py         Generates icons.js from vendored SVG files
+tools/check_project.py     Unified read-only project checks
+data/                      Legacy runtime data; migration source only, excluded from Git and releases
+```
+
+### Checks
+
+The authoritative command before committing is:
+
+```bash
+make check
+```
+
+It checks Python, JavaScript, Bash, plist, and JSON syntax; version consistency; theme and asset references; and whether generated icons are in sync. It also explicitly discovers and runs the tests. A test count of zero fails instead of being treated as a successful run.
+
+On Windows, install the fully hash-locked requirements using the CPython 3.12.10 x64 version fixed for release builds, then run the same unittest and JavaScript suites:
+
+Version 3.12.10 is fixed here because it is the final Python 3.12 full maintenance release that provides an official Windows binary installer. Later Python 3.12 security releases are source-only. End users do not inherit this build requirement because the installer already includes the runtime.
+
+```powershell
+py -3.12 -m pip install --require-hashes -r requirements-windows.txt
+py -3.12 -m unittest discover -s tests -p "test_*.py" -v
+node --test tests/js/i18n.test.mjs tests/js/ports.test.mjs
+```
+
+Windows release builds must run on Windows x64 and must first receive the static helper generated by Linux CI with a verified SHA-256:
+
+```powershell
+.\packaging\windows\build.ps1 `
+  -WslHelper .\dist\wsl-helper-x86_64 `
+  -WslHelperSha256 .\dist\wsl-helper-x86_64.sha256
+```
+
+The script strictly requires CPython 3.12.10 x64 and Inno Setup 6.7.3. It uses PyInstaller `onedir + windowed` for the tray application and a separate `onefile` build for the versioned supervisor, then creates a per-user installer together with SHA-256 checksums, a release manifest, an SBOM, and a complete dependency inventory. Use `-SkipInstaller` to validate only the `onedir` distribution.
+
+To run only the backend tests:
+
+```bash
+make test
+# Equivalent explicit command:
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Before a formal release, also run:
+
+```bash
+make release-check
+```
+
+This additionally checks the Git state and files that must not enter the release scope. It does not replace the manual acceptance work in `RELEASE_CHECKLIST.md`.
+
+### Regenerating Assets
+
+```bash
+make generate-icons
+make generate-brand
+make check
+```
+
+`static/icons.js` is generated and must not be edited manually. `generate-brand` uses `static/assets/console-app-icon.png` as its primary source and requires the macOS system `iconutil`. After regenerating brand assets, commit only the expected differences and update the SHA-256 in `ASSET_PROVENANCE.md`.
+
+## Releasing
+
+Follow every item in `RELEASE_CHECKLIST.md`. A deliverable candidate requires at least:
+
+- Copyright information consistent with the root MIT license, plus source, license, and authorization evidence for all third-party assets and project images.
+- A clean and traceable Git commit and a signed version tag.
+- Successful `make release-check` results and manual UI, security, upgrade, and rollback acceptance.
+- A distribution free of legacy project-local `data/`, user `%LOCALAPPDATA%` or Library data, logs, absolute paths, tokens, and caches.
+- Windows candidates must include reproducible SHA-256 values, version/dependency/SBOM inventories, and evidence for clean installation, in-place upgrade, uninstallation/data retention, and Windows/WSL2 security lifecycles. The current preview build must be clearly marked as unsigned and subject to SmartScreen risk. A later stable release must add Authenticode signing and verification.
+- A macOS release still requires signing and notarization for the target Mac, integrity verification, clean-install evidence, and rollback evidence.
+
+## Contributing and Security
+
+- Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and run `make check` before submitting code.
+- See [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) for the code of conduct.
+- Do not disclose security issues in a normal public Issue. Reporting instructions and sanitization requirements are in [`SECURITY.md`](SECURITY.md).
+- When adding or replacing fonts, icons, illustrations, textures, or other assets, update both [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+## License and Third-Party Assets
+
+Project-owned code and documentation are licensed under the [`MIT License`](LICENSE). Lucide, Geist Mono, project-generated images, and other assets may be subject to their own licenses or distribution restrictions; these are not automatically changed by the root MIT license. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md) for details.
