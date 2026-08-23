@@ -984,8 +984,19 @@ class SupervisorTests(unittest.TestCase):
             # Force the launcher-side deadline before the new Python process
             # can finish importing.  The private cancel marker must be seen
             # before the suspended managed command is resumed.
+            real_popen = supervisor_client.subprocess.Popen
+            captured = []
+
+            def capture_launcher(*args, **kwargs):
+                process = real_popen(*args, **kwargs)
+                captured.append(process)
+                return process
+
             with mock.patch.object(
-                    supervisor_client, "wait_for_metadata", return_value=None):
+                    supervisor_client, "wait_for_metadata", return_value=None), \
+                    mock.patch.object(
+                        supervisor_client.subprocess, "Popen",
+                        side_effect=capture_launcher):
                 launched = supervisor_client.launch_supervisor(
                     str(ROOT), temporary, os.path.join(temporary, "run.log"),
                     run_id, token, [sys.executable, "-c", code],
@@ -1004,18 +1015,14 @@ class SupervisorTests(unittest.TestCase):
                     Path(cancel_marker).read_text(encoding="ascii").strip(),
                     hashlib.sha256(token.encode("utf-8")).hexdigest(),
                 )
-            import psutil
-            with self.assertRaises(psutil.NoSuchProcess):
-                psutil.Process(launched["supervisorPid"])
+            self.assertEqual(len(captured), 1)
+            self.assertEqual(captured[0].pid, launched["supervisorPid"])
+            self.assertIsNotNone(captured[0].poll(), launched)
             job_name = supervisor_windows.names(
                 run_id, hashlib.sha256(token.encode("utf-8")).hexdigest()
             )[1]
             with self.assertRaises(Exception):
-                handle = supervisor_windows.open_job(job_name)
-                try:
-                    supervisor_windows.terminate_job(handle, 130)
-                finally:
-                    handle.Close()
+                supervisor_windows.open_job(job_name)
 
     def test_late_onefile_child_observes_retained_startup_cancel_marker(self):
         token = "late-bootloader-child-" + "b" * 32
