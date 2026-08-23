@@ -430,7 +430,13 @@ class WindowsReleaseManifestTests(unittest.TestCase):
         self.assertIn("Release manifest does not cover every installed", text)
         self.assertIn("$RequiredInnoSetupVersion = '6.7.3'", text)
         self.assertIn("function Get-InnoSetupVersion", text)
+        self.assertIn("[string]$InnoCompiler", text)
+        self.assertIn("Specified Inno Setup compiler was not found", text)
         self.assertIn("Programs\\Inno Setup 6\\ISCC.exe", text)
+        self.assertLess(
+            text.index("$Candidates = @()"),
+            text.index("$Iscc = Get-Command iscc"),
+        )
         self.assertIn("DisplayVersion", text)
         self.assertIn("innoSetupVersion = $InnoSetupVersion", text)
         self.assertIn("RequiredChineseLanguageHash", text)
@@ -525,6 +531,15 @@ class WindowsReleaseManifestTests(unittest.TestCase):
         self.assertIn("Get-AuthenticodeSignature", text)
         self.assertIn("Pyrsys B\\.V\\.", text)
         self.assertIn("'/CURRENTUSER'", text)
+        self.assertIn(
+            "Join-Path $env:LOCALAPPDATA 'Programs\\Inno Setup 6\\ISCC.exe'",
+            text,
+        )
+        self.assertIn(
+            "The pinned per-user Inno Setup compiler was not found",
+            text,
+        )
+        self.assertIn("-InnoCompiler $InnoCompiler", text)
         self.assertIn("--require-hashes", text)
         self.assertIn("local-ops-windows-x64.spdx.json", text)
         self.assertIn("windows-python-dependencies.txt", text)

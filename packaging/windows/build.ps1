@@ -3,6 +3,7 @@ param(
     [string]$OutputDirectory,
     [string]$WslHelper,
     [string]$WslHelperSha256,
+    [string]$InnoCompiler,
     [switch]$SkipInstaller
 )
 
@@ -330,10 +331,16 @@ Copy-Item -LiteralPath $ResolvedDependenciesPath -Destination (Join-Path $AppDir
 $IsccPath = $null
 $InnoSetupVersion = $null
 if (-not $SkipInstaller) {
-    $Iscc = Get-Command iscc -ErrorAction SilentlyContinue
-    if ($Iscc) {
-        $IsccPath = $Iscc.Source
+    if ($InnoCompiler) {
+        $IsccPath = [System.IO.Path]::GetFullPath($InnoCompiler)
+        if (-not (Test-Path -LiteralPath $IsccPath -PathType Leaf)) {
+            throw "Specified Inno Setup compiler was not found: $IsccPath"
+        }
     } else {
+        # Prefer official install locations over PATH shims.  Managed Windows
+        # images can expose Chocolatey's ISCC shim ahead of a newly installed
+        # per-user compiler, but the shim is not the registered compiler whose
+        # pinned version can be proven below.
         $Candidates = @()
         if ($env:LOCALAPPDATA) {
             $Candidates += Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'
@@ -343,6 +350,10 @@ if (-not $SkipInstaller) {
         }
         if ($env:ProgramFiles) {
             $Candidates += Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'
+        }
+        $Iscc = Get-Command iscc -ErrorAction SilentlyContinue
+        if ($Iscc) {
+            $Candidates += $Iscc.Source
         }
         $IsccPath = $Candidates |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |

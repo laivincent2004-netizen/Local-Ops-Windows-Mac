@@ -179,6 +179,10 @@ jobs:
           if ($Process.ExitCode -ne 0) {
             throw "Installing Inno Setup 6.7.3 failed with exit $($Process.ExitCode)."
           }
+          $Compiler = Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $Compiler -PathType Leaf)) {
+            throw "The pinned per-user Inno Setup compiler was not found: $Compiler"
+          }
 
       - name: Build onedir application and installer
         shell: pwsh
@@ -187,9 +191,11 @@ jobs:
           $Expected = ((Get-Content -Raw -LiteralPath ./dist/wsl-helper-x86_64.sha256).Trim() -split '\s+')[0].ToLowerInvariant()
           $Actual = (Get-FileHash -Algorithm SHA256 -LiteralPath ./dist/wsl-helper-x86_64).Hash.ToLowerInvariant()
           if ($Actual -ne $Expected) { throw "Downloaded WSL helper hash mismatch." }
+          $InnoCompiler = Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'
           ./packaging/windows/build.ps1 `
             -WslHelper ./dist/wsl-helper-x86_64 `
-            -WslHelperSha256 ./dist/wsl-helper-x86_64.sha256
+            -WslHelperSha256 ./dist/wsl-helper-x86_64.sha256 `
+            -InnoCompiler $InnoCompiler
 
       - name: Assert release artifacts
         shell: pwsh
