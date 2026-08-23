@@ -644,13 +644,13 @@ class KillEndpointTests(unittest.TestCase):
         status, body, _ = self.h.request(
             "POST", "/api/kill", json.dumps({"pid": server.SELF_PID}),
             self.headers)
-        self.assertEqual(status, 200)
+        self.assertEqual(status, 409)
         self.assertFalse(body["ok"])
         self.assertIn("自身", body["error"])
 
         status, body, _ = self.h.request(
             "POST", "/api/kill", json.dumps({"pid": 99999999}), self.headers)
-        self.assertEqual(status, 200)
+        self.assertEqual(status, 409)
         self.assertFalse(body["ok"])
         self.assertIn("不存在", body["error"])
 

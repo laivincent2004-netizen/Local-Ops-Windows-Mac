@@ -4360,8 +4360,9 @@ def stop_app_and_wait(app, timeout=APP_STOP_TIMEOUT_SEC, listeners=None,
     # Windows has no signal.SIGKILL.  Supervisor and identity-checked native
     # targets use the explicit ``force`` flag; the signal value is only used
     # by the POSIX process/group fallback below.
-    stop_signal = (getattr(signal, "SIGKILL", signal.SIGTERM)
-                   if force else signal.SIGTERM)
+    stop_signal = signal.SIGTERM
+    if force and not IS_WINDOWS:
+        stop_signal = getattr(signal, "SIGKILL", signal.SIGTERM)
     ok, error = signal_app_stop(target, stop_signal, force=force)
     if not ok:
         return False, error

@@ -1,4 +1,5 @@
 import ast
+import hashlib
 import importlib.util
 import json
 import os
@@ -461,14 +462,18 @@ class WindowsReleaseManifestTests(unittest.TestCase):
     def test_installer_vendors_pinned_chinese_language_input(self):
         installer = INSTALLER_SCRIPT.read_text(encoding="utf-8")
         language = CHINESE_LANGUAGE.read_text(encoding="utf-8")
+        build_script = BUILD_SCRIPT.read_text(encoding="utf-8")
         provenance = CHINESE_LANGUAGE.with_name("README.md").read_text(
             encoding="utf-8"
         )
+        language_hash = hashlib.sha256(CHINESE_LANGUAGE.read_bytes()).hexdigest()
         self.assertIn("/DLanguageDir=path", installer)
         self.assertIn('{#LanguageDir}\\ChineseSimplified.isl', installer)
         self.assertIn("Inno Setup version 6.5.0+", language)
         self.assertIn("Maintainer: Zhenghan Yang (Kira)", language)
         self.assertIn("5680c948e1de07e71cbd27cad7d4f5e75223afba", provenance)
+        self.assertIn(language_hash, build_script)
+        self.assertIn(language_hash, provenance)
         self.assertIn("Inno Setup License", INNO_LICENSE.read_text(encoding="utf-8"))
 
     def test_unsigned_notice_explains_smartscreen_integrity_and_upgrade(self):

@@ -832,8 +832,11 @@ class ProcessIdentityTests(unittest.TestCase):
 
     @POSIX_ONLY
     def test_attach_rejects_foreign_unrelated_or_running(self):
-        cfg = mock.Mock()
         app = {"id": "a", "port": 8080, "kind": "service"}
+        stored = {"apps": [app]}
+        cfg = mock.Mock()
+        cfg.snapshot.return_value = stored
+        cfg.update.side_effect = lambda op: op(stored)
         with mock.patch.object(server, "app_alive_sign", return_value=False), \
                 mock.patch.object(server, "scan_listeners",
                                   return_value={(4242, 9999)}):
@@ -856,6 +859,7 @@ class ProcessIdentityTests(unittest.TestCase):
         self.assertIn("已在运行", error)
 
         task = {"id": "a", "port": None, "kind": "task"}
+        stored["apps"][0] = task
         ok, error, _ = server.attach_app_process(cfg, "a", task, 4242)
         self.assertFalse(ok)
         self.assertIn("批处理任务", error)

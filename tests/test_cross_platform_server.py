@@ -1078,6 +1078,22 @@ class SupervisorReclaimTests(unittest.TestCase):
         self.assertIsNone(error)
         send.assert_called_once_with(target, server.signal.SIGTERM, force=True)
 
+    def test_posix_force_stop_uses_sigkill(self):
+        target = {"kind": "group", "id": 9900, "members": [9900]}
+        with mock.patch.object(server, "IS_WINDOWS", False), \
+                mock.patch.object(server.signal, "SIGKILL", 9, create=True), \
+                mock.patch.object(server, "resolve_app_stop_target",
+                                  return_value=(target, None)), \
+                mock.patch.object(server, "signal_app_stop",
+                                  return_value=(True, None)) as send, \
+                mock.patch.object(server, "stop_target_alive",
+                                  return_value=False):
+            ok, error = server.stop_app_and_wait({}, force=True)
+
+        self.assertTrue(ok)
+        self.assertIsNone(error)
+        send.assert_called_once_with(target, 9, force=True)
+
     def test_frozen_windows_exit_cleans_only_unreferenced_supervisors(self):
         with mock.patch.object(server, "IS_WINDOWS", True), \
                 mock.patch.object(server.sys, "frozen", True, create=True), \

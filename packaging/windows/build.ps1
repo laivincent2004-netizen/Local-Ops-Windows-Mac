@@ -110,7 +110,7 @@ $ChineseLanguageProvenance = Join-Path $PSScriptRoot 'languages\README.md'
 $RequiredPythonVersion = '3.12.10'
 $RequiredInnoSetupVersion = '6.7.3'
 $ChineseLanguageCommit = '5680c948e1de07e71cbd27cad7d4f5e75223afba'
-$RequiredChineseLanguageHash = '413c162b8262df27d0dcd1dc8f321da0cc6b599b998b39d5bcd49d193c42d029'
+$RequiredChineseLanguageHash = 'bf0751fa176569c6faa2f6e17ed2734617bef325d5cc06eae030fdd0258ee778'
 
 $NativeOsArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
 if (-not [Environment]::Is64BitOperatingSystem -or $NativeOsArchitecture -ne 'X64') {
