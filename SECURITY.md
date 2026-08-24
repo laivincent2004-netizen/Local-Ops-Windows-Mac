@@ -1,5 +1,7 @@
 # 安全政策
 
+[English version](#english-version)
+
 总控台会以当前 macOS/Windows 用户或选定 WSL2 发行版默认用户的权限执行用户保存的 shell 命令，并提供启动、停止和结束本地进程的接口。请把命令执行、身份校验、写接口授权、路径处理、配置完整性、Windows supervisor/命名管道、WSL helper/session 和敏感信息泄露问题视为高影响安全问题。
 
 ## 支持范围
@@ -48,3 +50,60 @@
 - 任何平台都不得仅凭相同端口或裸 PID 结束进程。Windows/WSL 破坏性 API 必须使用并重新验证有效 `instanceKey`。
 
 修复准备公开前，维护者会尽量与报告者协调披露时间。请勿在修复可用前公开可直接利用的细节。
+
+---
+
+<a id="english-version"></a>
+
+# Security Policy
+
+[中文版](#安全政策)
+
+Local Ops Console executes shell commands saved by the user with the privileges of the current macOS or Windows user, or the default user of a selected WSL2 distribution. It also provides interfaces for starting, stopping, and terminating local processes. Issues involving command execution, identity verification, authorization for write endpoints, path handling, configuration integrity, Windows supervisors or named pipes, WSL helpers or sessions, or the disclosure of sensitive information should be treated as high-impact security issues.
+
+## Supported Versions
+
+This project remains in Preview / Alpha. Security fixes prioritize the default branch and the latest released version. Continued support for older versions will be documented in the corresponding release notes. No compatibility fixes are promised for unpublished local development commits.
+
+## Reporting a Vulnerability Privately
+
+Please use **Security → Report a vulnerability** in the GitHub repository as the preferred channel for submitting a private report. Once the public repository has been established, maintainers must enable GitHub Private Vulnerability Reporting before publishing a release.
+
+If private vulnerability reporting is temporarily unavailable, do not disclose vulnerability details in a public Issue, Discussion, or Pull Request. Use a verified contact method listed on the repository owner's GitHub profile to send only a brief message that contains no vulnerability details and requests the establishment of a private channel. Do not attach reproduction code, logs, configuration data, or paths until the private channel has been confirmed.
+
+A useful private report should include:
+
+- The affected version or commit;
+- The environment: the macOS and Python versions, or the Windows 10/11 build, x64 architecture, and whether it is a version packaged with PyInstaller;
+- The affected card's `execution.environment` and Shell; for WSL, include a sanitized distribution name, whether it is WSL1 or WSL2, the helper version, and whether the distribution was running;
+- The scope of impact and prerequisites for exploitation;
+- Minimal reproduction steps;
+- The expected behavior and actual behavior;
+- Relevant logs or requests after sanitization;
+- A remediation approach that you believe is safe, if available.
+
+## Information That Must Be Redacted
+
+Do not submit any of the following in raw form:
+
+- `~/Library/Application Support/总控台/config.json{,.bak}`;
+- Logs under `~/Library/Logs/总控台/`;
+- Configuration data, logs, `runtime/`, `supervisors/`, or user icons under `%LOCALAPPDATA%\总控台\`;
+- Helpers, session metadata, Unix socket paths, or logs under `.local/share/local-ops/` in a WSL user's home directory;
+- Complete shell commands, personal working directories, usernames, or home-directory paths;
+- PIDs, Windows SIDs, process creation times, `instanceKey` values, run or session tokens, token hashes, named-pipe or Unix-socket names, boot IDs, access tokens, keys, or environment variables;
+- User-uploaded icons or other files that you are not authorized to publish.
+
+Use explicit placeholders such as `/Users/example/project`, `C:\Users\example\project`, `/home/example/project`, `SID_REDACTED`, and `TOKEN_REDACTED`. Review screenshots and screen recordings carefully before submitting them.
+
+## Project Security Boundary
+
+- The HTTP service should bind only to `127.0.0.1` and should not be exposed, directly or indirectly, to a local network or the public Internet.
+- This project is not a multi-user access-control system or a remote administration panel.
+- Only trusted local users may add and execute commands.
+- Loopback binding does not replace validation of the Host, Origin, control token, and complete identity of a managed process. macOS uses the UID, process group, and token; Windows uses the current SID, PID creation time, working-directory and command identity, and port; WSL uses the distribution boot ID, UID, start ticks, working-directory and command hashes, and the session identity and token.
+- The DACLs for Windows data and the supervisor and tray named pipes should allow only the current SID and SYSTEM; the named pipes should reject remote clients. If the SID or creation time cannot be proven, the operation must fail closed.
+- WSL helpers and sessions must be restricted to the current Linux UID. Unix socket permissions must be `0600`, and `SO_PEERCRED`, the token hash, boot ID, start ticks, and PGID must be verified. A normal stop sends only SIGTERM; SIGKILL may be sent only for a force operation that the user has explicitly confirmed.
+- No platform may terminate a process solely because it uses the same port or based on a bare PID. Destructive Windows and WSL APIs must use and revalidate a valid `instanceKey`.
+
+Before a fix is made public, maintainers will make reasonable efforts to coordinate disclosure timing with the reporter. Do not publicly disclose directly exploitable details before a fix is available.

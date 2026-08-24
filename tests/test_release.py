@@ -205,6 +205,43 @@ class ProjectReleaseManifestTests(unittest.TestCase):
         self.assertIn("docs/screenshots/ops-launchpad.jpg", names)
         self.assertIn("docs/screenshots/ops-services.jpg", names)
 
+    def test_required_community_documents_are_bilingual(self):
+        documents = {
+            "CODE_OF_CONDUCT.md": (
+                "# Code of Conduct",
+                "## Conduct We Encourage",
+                "## Unacceptable Conduct",
+                "## Enforcement",
+            ),
+            "CONTRIBUTING.md": (
+                "# Contributing",
+                "## Before You Begin",
+                "## Development Environment",
+                "## Change Principles",
+                "## Assets and Licensing",
+                "## Checks",
+                "## Changelog",
+                "## Commits and Pull Requests",
+            ),
+            "SECURITY.md": (
+                "# Security Policy",
+                "## Supported Versions",
+                "## Reporting a Vulnerability Privately",
+                "## Information That Must Be Redacted",
+                "## Project Security Boundary",
+            ),
+        }
+        anchor = '<a id="english-version"></a>'
+        for relative, headings in documents.items():
+            with self.subTest(relative=relative):
+                text = (release.ROOT / relative).read_text(encoding="utf-8")
+                self.assertIn("[English version](#english-version)", text)
+                self.assertEqual(text.count(anchor), 1)
+                english = text.split(anchor, 1)[1]
+                self.assertIn("[中文版]", english)
+                for heading in headings:
+                    self.assertIn(heading, english)
+
     def test_required_third_party_licenses_are_in_payload(self):
         names = {
             path.relative_to(release.ROOT).as_posix()

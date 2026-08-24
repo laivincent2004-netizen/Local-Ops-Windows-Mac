@@ -1,5 +1,7 @@
 # 社区行为规范
 
+[English version](#english-version)
+
 总控台希望形成一个专业、友善、重视安全与证据的协作环境。参与 Issue、Pull Request、讨论、评审和其他项目空间，即表示同意遵守本规范。
 
 ## 我们鼓励的行为
@@ -26,3 +28,38 @@
 维护者处理报告时应尽量保护报告者和受影响人员的隐私，并说明采取的措施。对执行决定有异议时，可以通过同一私密渠道请求复核。
 
 本规范适用于项目官方空间，以及个人明确代表本项目参与活动的场景。
+
+---
+
+<a id="english-version"></a>
+
+# Code of Conduct
+
+[中文版](#社区行为规范)
+
+Local Ops Console aims to foster a professional, welcoming collaboration environment grounded in safety and evidence. By participating in Issues, Pull Requests, discussions, reviews, or other project spaces, you agree to follow this Code of Conduct.
+
+## Conduct We Encourage
+
+- Respect differences in experience, background, perspective, and communication style.
+- Keep discussions focused on facts, reproduction steps, code, and impact on users.
+- Clearly distinguish suggestions, inferences, and conclusions that have been verified.
+- Be receptive to constructive feedback and give others room to correct mistakes.
+- Proactively protect contributors' and users' privacy, including local paths, commands, and logs.
+- When security or licensing concerns arise, err on the side of pausing a release rather than concealing risks.
+
+## Unacceptable Conduct
+
+- Harassment, insults, threats, discrimination, or personal attacks.
+- Disclosing another person's identity, contact information, paths, logs, configuration, or other private information without permission.
+- Knowingly submitting malicious code, credentials, infringing material, or misleading test results.
+- Using technical discussions to persistently badger others, inflame conflict, or disrupt collaboration.
+- Continuing inappropriate conduct after a maintainer asks you to stop.
+
+## Enforcement
+
+Maintainers may edit, hide, or remove content that violates this Code of Conduct and, depending on the severity, may issue a warning or temporarily restrict or permanently prohibit participation. For security vulnerabilities, privacy concerns, or serious conduct issues, contact the maintainers through the private channel described in [`SECURITY.md`](SECURITY.md). Do not disclose related details in a public Issue.
+
+When handling reports, maintainers should make reasonable efforts to protect the privacy of reporters and affected individuals and explain any actions taken. Anyone who disagrees with an enforcement decision may request a review through the same private channel.
+
+This Code of Conduct applies in official project spaces and whenever an individual is explicitly acting as a representative of this project.

@@ -1,5 +1,7 @@
 # 参与贡献
 
+[English version](#english-version)
+
 感谢你帮助改进总控台。项目仍处于 Preview / Alpha 阶段，优先接受范围清晰、可验证且不扩大安全边界的改动。
 
 ## 开始之前
@@ -106,3 +108,114 @@ Pull Request 应说明：
 - 贡献即表示你有权提交该内容，并同意项目按根目录 `LICENSE` 及对应素材许可分发。
 
 所有参与者都应遵守 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)。
+
+---
+
+<a id="english-version"></a>
+
+# Contributing
+
+[中文版](#参与贡献)
+
+Thank you for helping improve Local Ops Console. The project is still in the Preview / Alpha stage. Priority is given to changes that have a clearly defined scope, can be verified, and do not expand the security boundary.
+
+## Before You Begin
+
+1. Search existing Issues and Pull Requests first to avoid duplicate work.
+2. For larger features, configuration schema changes, process-management policy changes, or UI theme changes, open an Issue first and describe the motivation, user scenarios, and compatibility impact.
+3. Do not discuss security vulnerabilities publicly. Report them privately according to [`SECURITY.md`](SECURITY.md).
+4. Do not commit local `data/`, `%LOCALAPPDATA%\总控台`, Application Support, Library Logs, helper/session/log data from a WSL user directory, personal paths, full commands, SIDs, `instanceKey` values, tokens, user icons, or screenshots that have not been redacted.
+
+## Development Environment
+
+### macOS
+
+- macOS 12 or later;
+- Python 3.12; the backend uses only the standard library at runtime;
+- Node.js, for JavaScript syntax and unit checks.
+
+Install the development dependencies when regenerating brand/icon assets or running the corresponding tools:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements-dev.txt
+```
+
+### Windows x64
+
+- Windows 10 22H2 or Windows 11 x64; Windows ARM64 is outside the supported and packaging scope;
+- Source development requires Python 3.12 x64 and Node.js. Windows release builds are fixed to CPython 3.12.10 x64, the final 3.12 full-maintenance release with official Windows binary installers;
+- Dependencies for source execution, process monitoring, the system-tray host, and packaging are pinned exactly in `requirements-windows.txt`. The fact that users do not need to install Python for the Windows application does not mean that Windows source development has no dependencies.
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --require-hashes -r requirements-windows.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v
+node --test tests/js/i18n.test.mjs tests/js/ports.test.mjs
+```
+
+The Windows installer must be built on Windows x64. It also requires Inno Setup 6.7.3 and the static x86_64-musl WSL helper produced by Linux CI, together with its corresponding SHA-256 file. Cross-building Windows artifacts from macOS is not supported. See `README.md` and `packaging/windows/build.ps1` for the packaging commands and artifact contract.
+
+WSL2 end-to-end testing requires a virtualized Windows 10/11 x64 test machine. Unit and protocol tests are not substitutes for acceptance testing with real Ubuntu, Debian, and non-glibc distributions, NAT and mirrored networking, and distribution restarts.
+
+## Change Principles
+
+- Keep the macOS backend runtime path implemented with the Python standard library. Windows-specific dependencies must be lazily loaded only on Windows and pinned to exact versions. Keep the frontend as native ES Modules with no CDN and no build step.
+- Do not weaken loopback binding, Host/Origin/control-token checks, macOS UID/process-group/token checks, Windows SID/PID creation-time/Job/named-pipe DACL/HMAC checks, or WSL boot ID/UID/start ticks/session token/0600 socket checks.
+- Never terminate an unknown process solely by port. Destructive Windows and WSL operations must use a signed `instanceKey` and immediately revalidate the complete identity; they must never fall back to a bare PID.
+- If a normal stop times out, preserve the runtime identity and return `requiresForce`. Force termination of a verified Windows Job or WSL session is allowed only after explicit secondary confirmation from the user.
+- Configuration changes must include an explicit `schemaVersion`, an idempotent migration, and upgrade tests.
+- Update the DOM service list in place by `instanceKey`; continue to use `key` for stable hidden/pinned state and avoid redrawing the entire table during polling.
+- Dangerous operations must require explicit confirmation.
+- After modifying `static/icons/*.svg`, run `make generate-icons`. Do not edit `static/icons.js` manually.
+
+## Assets and Licensing
+
+When adding or replacing fonts, logos, app icons, favicons, illustrations, photographs, textures, sounds, or other assets, the Pull Request must also:
+
+1. Update [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md);
+2. Record the source, author or generation method, version, modification process, license, SHA-256, and location of supporting evidence;
+3. Update [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) when necessary and include the full license text in the distribution;
+4. Confirm that the asset status is neither `BLOCKED` nor `TO_REPLACE`.
+
+Statements such as “downloadable from the internet,” “AI-generated,” or “free to use” are not sufficient proof that an asset may be redistributed with an open-source project.
+
+## Checks
+
+Run the following before submitting:
+
+```bash
+make check
+```
+
+If the change affects the release scope, licensing, static assets, or packaging logic, also run:
+
+```bash
+make release-check
+```
+
+A Pull Request should explain:
+
+- What changed and why;
+- User-visible effects and risks;
+- Which checks were run and their results;
+- Any required manual acceptance steps;
+- Whether the change affects configuration, data, process lifecycles, asset licensing, or the release scope.
+
+## Changelog
+
+- User-visible features, fixes, security changes, and compatibility changes must be added to the `Unreleased` section of [`CHANGELOG.md`](CHANGELOG.md).
+- Use `Added`, `Changed`, `Fixed`, `Removed`, or `Security` to describe user outcomes rather than implementation steps.
+- Pure cache cleanup, removal of stale local build artifacts, and internal refactoring that does not affect behavior do not require a changelog entry; explain in the Pull Request why the changelog does not apply.
+- At release time, move the contents of `Unreleased` to the corresponding version and release date, then retain a new empty `Unreleased` section.
+
+## Commits and Pull Requests
+
+- Use concise, traceable commits. Do not use placeholder email addresses or falsify authorship.
+- Keep each Pull Request focused on a single topic whenever possible.
+- Do not rewrite another contributor's history or include unrelated formatting changes or generated files.
+- If the UI changes, provide redacted screenshots that contain no personal paths or real service information.
+- By contributing, you confirm that you have the right to submit the content and agree that the project may distribute it under the root `LICENSE` and any applicable asset licenses.
+
+All participants are expected to follow [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).

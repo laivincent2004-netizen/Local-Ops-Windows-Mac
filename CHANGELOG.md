@@ -26,7 +26,7 @@
 - 增加项目权利声明与第三方素材清单。
 - 增加根目录 `VERSION` 统一版本源，`/api/state` 暴露版本/schema/降级信息，并增加不执行进程扫描的 `/api/health`。
 - 增加显式 `schemaVersion` 与幂等的逐版配置迁移器；当前跨平台配置已演进到 v2。
-- 增加 `SECURITY.md`、`CONTRIBUTING.md`、社区行为规范以及 GitHub Issue/PR 模板。
+- 增加中英双语 `SECURITY.md`、`CONTRIBUTING.md`、社区行为规范以及 GitHub Issue/PR 模板。
 - 增加 `ASSET_PROVENANCE.md`，并用路径、SHA-256 与发布状态检查覆盖字体、品牌图片、插画和程序化纹理。
 - 增加统一品牌标识、网页 favicon、Apple Touch Icon、macOS App Icon 与可重建的品牌导出脚本。
 - 命令面板增加“添加服务”和“添加批处理任务”入口；应用卡片增加可取消的键盘排序。
